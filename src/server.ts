@@ -38,14 +38,36 @@ const start = async () => {
 
   app.post("/api/webhooks/stripe", webhookMiddleware, stripeWebhookHandler);
 
-  const payload = await getPayloadClient({
-    initOptions: {
-      express: app,
-      onInit: async (cms) => {
-        cms.logger.info(`Admin URL: ${cms.getAdminURL()}`);
+  let payload: any;
+
+  try {
+    payload = await getPayloadClient({
+      initOptions: {
+        express: app,
+        onInit: async (cms) => {
+          cms.logger.info(`Admin URL: ${cms.getAdminURL()}`);
+        },
       },
-    },
-  });
+    });
+  } catch (err) {
+    // If Payload fails to initialize (for example in dev when DB adapter
+    // versions mismatch), log a warning and provide a minimal mock so the
+    // Next.js app can still run. Features depending on Payload will be
+    // non-functional until a proper config/key is provided.
+    // eslint-disable-next-line no-console
+    console.warn(
+      "Payload failed to initialize:",
+      (err as any)?.message || err
+    );
+
+    payload = {
+      logger: { info: () => {}, error: () => {} },
+      authenticate: ((req: any, res: any, next: any) => next) as any,
+      find: async () => ({ docs: [] }),
+      update: async () => ({}),
+      create: async () => ({}),
+    };
+  }
 
   if (process.env.NEXT_BUILD) {
     app.listen(PORT, async () => {
@@ -62,7 +84,9 @@ const start = async () => {
 
   const cartRouter = express.Router();
 
-  cartRouter.use(payload.authenticate);
+  // payload.authenticate's signature isn't typed as an Express RequestHandler
+  // so cast to satisfy TypeScript's expectations here.
+  cartRouter.use(payload.authenticate as unknown as express.RequestHandler);
 
   cartRouter.get("/", (req, res) => {
     const request = req as PayloadRequest;

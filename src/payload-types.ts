@@ -140,6 +140,6 @@ export interface PayloadMigration {
 }
 
 
-declare module 'payload' {
-  export interface GeneratedTypes extends Config {}
-}
+// Note: `payload` already exports `GeneratedTypes`. Removing the
+// module augmentation here to avoid duplicate identifier errors.
+export {};

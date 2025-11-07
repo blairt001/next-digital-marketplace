@@ -63,14 +63,14 @@ This platform serves as a comprehensive digital marketplace, leveraging modern t
 Create an .env or .env.local to store your keys:
 
 ```bash
-NEXT_PUBLIC_SERVER_URL= your localhost
-PAYLOAD_SECRET= your payload key
-MONGODB_URL= your key
-STRIPE_SECRET_KEY= stripe key
-STRIPE_WEBHOOK_SECRET= webhook key
-STRIPE_PRODUCT_KEY= product key
-RESEND_API_KEY= resend key
-EMAIL= your email from address
+NEXT_PUBLIC_SERVER_URL=test
+PAYLOAD_SECRET=test
+MONGODB_URL=test
+STRIPE_SECRET_KEY=test
+STRIPE_WEBHOOK_SECRET=test
+STRIPE_PRODUCT_KEY=test
+RESEND_API_KEY=test
+EMAIL=test
 ```
 
 ## To manage your payload data

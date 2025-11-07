@@ -33,7 +33,7 @@ export const paymentRouter = router({
         collection: "orders",
         data: {
           _isPaid: false,
-          products: filteredProducts.map((prod) => prod.id),
+          products: filteredProducts.map((prod) => String(prod.id)),
           user: user.id,
         },
       });
@@ -42,7 +42,8 @@ export const paymentRouter = router({
 
       filteredProducts.forEach((product) => {
         line_items.push({
-          price: product.priceId!,
+          // ensure price is a string for Stripe's types
+          price: product.priceId as unknown as string,
           quantity: 1,
         });
       });

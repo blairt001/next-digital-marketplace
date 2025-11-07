@@ -7,7 +7,16 @@ import { Product } from "./payload-types";
 import { Resend } from "resend";
 import { ReceiptEmailHtml } from "./components/emails/ReceiptEmail";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const _resendKey = process.env.RESEND_API_KEY ?? "";
+const hasResendKey = _resendKey !== "" && !_resendKey.includes("your_");
+
+const resend: Resend = hasResendKey
+  ? new Resend(_resendKey)
+  : (new Proxy({}, { get: () => {
+      throw new Error(
+        "Resend is not configured. Set RESEND_API_KEY in your environment to send emails."
+      );
+    } }) as unknown as Resend);
 
 export const stripeWebhookHandler = async (
   req: express.Request,
@@ -47,13 +56,15 @@ export const stripeWebhookHandler = async (
     const errorMessage =
       err instanceof Error ? err.message : "Webhook Unknown Error";
     const escapedErrorMessage = escapeHtml(errorMessage);
-    return res.status(400).send(escapedErrorMessage);
+    res.status(400).send(escapedErrorMessage);
+    return;
   }
 
   const session = event.data.object as Stripe.Checkout.Session;
 
   if (!session?.metadata?.userId || !session?.metadata?.orderId) {
-    return res.status(400).send(`Webhook Error: No user present in metadata`);
+    res.status(400).send(`Webhook Error: No user present in metadata`);
+    return;
   }
 
   if (event.type === "checkout.session.completed") {
@@ -70,7 +81,10 @@ export const stripeWebhookHandler = async (
 
     const [user] = users;
 
-    if (!user) return res.status(404).json({ error: "No such user exists." });
+    if (!user) {
+      res.status(404).json({ error: "No such user exists." });
+      return;
+    }
 
     const { docs: orders } = await payload.find({
       collection: "orders",
@@ -84,7 +98,10 @@ export const stripeWebhookHandler = async (
 
     const [order] = orders;
 
-    if (!order) return res.status(404).json({ error: "No such order exists." });
+    if (!order) {
+      res.status(404).json({ error: "No such order exists." });
+      return;
+    }
 
     await payload.update({
       collection: "orders",
@@ -104,11 +121,11 @@ export const stripeWebhookHandler = async (
         //TODO: change email
         from: "onboarding@resend.dev",
         // fromAddress: process.env.EMAIL as string,
-        to: [user.email],
+        to: [user.email as string],
         subject: "Thanks for your order! This is your receipt.",
-        html: ReceiptEmailHtml({
+        html: await ReceiptEmailHtml({
           date: new Date(),
-          email: user.email,
+          email: user.email as string,
           orderId: session.metadata.orderId,
           products: order.products as Product[],
         }),
@@ -116,8 +133,10 @@ export const stripeWebhookHandler = async (
       res.status(200).json({ data });
     } catch (error) {
       res.status(500).json({ error });
+      return;
     }
   }
 
-  return res.status(200).send();
+  res.status(200).send();
+  return;
 };

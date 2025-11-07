@@ -1,8 +1,14 @@
 import dotenv from "dotenv";
 import path from "path";
 import type { InitOptions } from "payload/config";
-import payload, { Payload } from "payload";
+import type { Payload } from "payload";
 import nodemailer from "nodemailer";
+
+// Load local env first (commonly used by Next.js), then fall back to .env
+// Try loading .env.local (project root) and fall back to .env
+dotenv.config({
+  path: path.resolve(__dirname, "../.env.local"),
+});
 
 dotenv.config({
   path: path.resolve(__dirname, "../.env"),
@@ -43,18 +49,25 @@ export const getPayloadClient = async ({
   }
 
   if (!cached.promise) {
-    cached.promise = payload.init({
-      email: {
-        transport: transporter,
-        //TODO: change email
-        fromAddress: "onboarding@resend.dev",
-        // fromAddress: process.env.EMAIL as string,
-        fromName: "Digital Marketplace",
-      },
-      secret: process.env.PAYLOAD_SECRET,
-      local: initOptions?.express ? false : true,
-      ...(initOptions || {}),
-    });
+    // Import payload lazily to avoid runtime import errors when payload's
+    // dependencies (like the DB adapter) are not properly configured in dev.
+    cached.promise = (async () => {
+      const payloadModule = await import("payload");
+      const runtimePayload = payloadModule.default;
+
+      return runtimePayload.init({
+        email: {
+          transport: transporter,
+          //TODO: change email
+          fromAddress: "onboarding@resend.dev",
+          // fromAddress: process.env.EMAIL as string,
+          fromName: "Digital Marketplace",
+        },
+  secret: process.env.PAYLOAD_SECRET as string,
+        local: initOptions?.express ? false : true,
+        ...(initOptions || {}),
+      });
+    })();
   }
 
   try {
